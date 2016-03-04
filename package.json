@@ -1,0 +1,25 @@
+{
+  "name": "hate-speech-monitoring",
+  "version": "0.0.0",
+  "description": "Configure by editing the `config` object and `state.sources`. Run with ```bash ~/hate-speech-monitoring $ node > var m = require('./monitor'); > m.start(); ... > m.export_all(); ``` Check `m.debug` for other options.",
+  "main": "run.js",
+  "dependencies": {
+    "fbgraph": "^1.1.0",
+    "json2csv": "^3.2.0",
+    "async": "^1.5.2",
+    "underscore": "^1.8.3"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/UNU-CS/hate-speech-monitoring"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/UNU-CS/hate-speech-monitoring/issues"
+  }
+}
