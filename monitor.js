@@ -11,8 +11,8 @@ var config = {
   backup_interval_ms: 1000*60*10,
   alive_age_ms: 1000*60*60*24,
   state_backup_file: './monitor.backup',
-  post_export_file: './monitor_posts.export',
-  comment_export_file: './monitor_comments.export',
+  post_export_file: './monitor_posts.csv',
+  comment_export_file: './monitor_comments.csv',
   access_token: 'APP_ID|APP_SECRET'
   sources: [
     'some_fb_page',
@@ -286,8 +286,6 @@ module.exports = {
     save_live_post_comments: save_live_post_comments,
     export_state: export_state,
     load_state: load_state,
-    get_state: get_state,
-    save_csv: save_csv,
-    config: config
+    get_state: get_state
   }
 };
