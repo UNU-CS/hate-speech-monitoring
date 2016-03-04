@@ -13,13 +13,14 @@ var config = {
   state_backup_file: './monitor.backup',
   post_export_file: './monitor_posts.csv',
   comment_export_file: './monitor_comments.csv',
-  access_token: 'APP_ID|APP_SECRET'
+  access_token: 'APP_ID|APP_SECRET',
   sources: [
     'some_fb_page',
     'some_fb_group',
     'not_a_user_though',
     'nytimes'
   ],
+  debug: false
 }
 
 var state = {
@@ -69,6 +70,24 @@ function format_comment(post_id) {
   };
 }
 
+function handle_error(err) {
+  if(!err) {
+    return;
+  }
+
+  if(typeof err === 'object') {
+    console.error(err);
+    err = err.message;
+  } else {
+    err = err.toString();
+    console.error(err);
+  }
+
+  if(!debug) {
+    throw new Error(err);
+  }
+}
+
 function record_request() {
   state.requests.push(new Date());
 }
@@ -92,19 +111,18 @@ function get(path, params, after, callback) {
   }
 
   graph.get(path, params, function(err, res) {
+    if(err && err.is_transient) {
+      console.log('Got a transient error; retrying ' + path);
+      return get(path, params, after, callback);
+    } 
+
     if(err) {
-      if(err.is_transient) {
-        console.log('Got a transient error, retrying ' + path);
-        return get(path, params, after, callback);
-      } else {
-        console.log('Got an error while processing ' + path);
-        console.log(err);
-        throw new Error(err.message);
-      }
+      console.error('Got an error while processing ' + path);
+      return handle_error(err);
     }
 
     if(!res) {
-      throw new Error('No response object!');
+      return handle_error('No response object!');
     }
 
     record_request();
@@ -182,21 +200,35 @@ function check_all_sources() {
   _.each(config.sources, get_posts);
 }
 
-var save = fs.writeFileSync;
+var save = fs.writeFile;
 
 // Save the state of this tool so it can be restarted easily.
 function export_state(filename) {
   if(!filename) {
     filename = config.state_backup_file;
   }
-  save(filename, JSON.stringify(state));
+  save(filename, JSON.stringify(state), handle_error);
 }
 
-function load_state(filename) {
+function load_state(filename, callback) {
   if(!filename) {
     filename = config.state_backup_file;
   }
-  state = JSON.parse(fs.readFileSync(filename));
+  fs.readFile(filename, function(err, data)
+    if(err && callback) {
+      return callback(err);
+    }
+
+    if(err) {
+      return handle_error(err);
+    }
+
+    state = JSON.parse(data)
+
+    if(callback) {
+      callback();
+    }
+  ));
 }
 
 function save_live_post_comments(callback) {
@@ -207,10 +239,9 @@ function save_csv(filename, obj) {
   var arr = _.values(obj);
   json2csv({ data: arr, fields: _.keys(arr[0]) }, function(err, csv) {
     if(err) {
-      console.log(err);
-      throw new Error(err.message);
+      return handle_error(err);
     }
-    save(filename, csv);
+    save(filename, csv, handle_error);
   });
 }
 
@@ -218,8 +249,7 @@ function save_csv(filename, obj) {
 function export_all() {
   save_live_post_comments(function(err) {
     if(err) {
-      console.log(err);
-      throw new Error(err.message);
+      return handle_error(err);
     }
     save_csv(config.post_export_file, state.posts);
     save_csv(config.comment_export_file, state.comments);
@@ -232,7 +262,10 @@ function initialize() {
   graph.setAccessToken(config.access_token);
 }
 
-function start() {
+function start(new_config) {
+  if(new_config) {
+    config = _.extend(config, new_config);
+  }
   initialize();
   setInterval(check_all_sources, config.refresh_interval_ms);
   setInterval(prune_posts, config.refresh_interval_ms);
@@ -240,7 +273,7 @@ function start() {
   setInterval(export_state, config.backup_interval_ms);
 }
 
-// Note: like most debug tools, you have to call myanmar.debug.initialize()
+// Note: like most debug tools, you have to call monitor.debug.initialize()
 // before this.
 function test_sources() {
   var posts = 0;
@@ -255,7 +288,7 @@ function test_sources() {
     });
   }, function(err) {
     if(err) {
-      console.log(err);
+      handle_error(err);
     } else {
       console.log('Successfully got posts (' + posts + ') from all sources (' + config.sources.length + ').');
       if(config.sources.length * config.post_limit !== posts) {
