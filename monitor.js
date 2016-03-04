@@ -84,7 +84,7 @@ function handle_error(err) {
     console.error(err);
   }
 
-  if(!debug) {
+  if(!config.debug) {
     throw new Error(err);
   }
 }
