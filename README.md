@@ -6,4 +6,8 @@ Configure by editing the `config` object and `state.sources`. Run with
 ...
 > m.export_all();
 ```
+Or as a daemon
+```bash
+$ forever start run.js
+'''
 Check `m.debug` for other options.
