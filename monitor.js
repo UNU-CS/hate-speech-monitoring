@@ -2,6 +2,7 @@ var graph = require('fbgraph');
 var _ = require('underscore');
 var json2csv = require('json2csv');
 var async = require('async');
+var fs = require('fs');
 
 var config = {
   version: '2.5',
@@ -211,10 +212,16 @@ function export_state(filename) {
 }
 
 function load_state(filename, callback) {
+  if(typeof filename === 'function') {
+    callback = filename;
+    filename = null;
+  }
+
   if(!filename) {
     filename = config.state_backup_file;
   }
-  fs.readFile(filename, function(err, data)
+
+  fs.readFile(filename, function(err, data) {
     if(err && callback) {
       return callback(err);
     }
@@ -228,7 +235,7 @@ function load_state(filename, callback) {
     if(callback) {
       callback();
     }
-  ));
+  });
 }
 
 function save_live_post_comments(callback) {
@@ -312,13 +319,13 @@ function get_state() {
 module.exports = {
   start: start,
   export_all: export_all,
+  load_state: load_state,
   debug: {
     initialize: initialize,
     getlots: getlots,
     test_sources: test_sources,
     save_live_post_comments: save_live_post_comments,
     export_state: export_state,
-    load_state: load_state,
     get_state: get_state
   }
 };
