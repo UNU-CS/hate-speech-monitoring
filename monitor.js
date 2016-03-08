@@ -6,9 +6,9 @@ var fs = require('fs');
 
 var config = {
   version: '2.5',
-  post_limit: 25, 
+  post_limit: 25,
   comment_limit: 500, // If this is too big, you may get errors stating "Please reduce the amount of data you're asking for, then retry your request"
-  refresh_interval_ms: 1000*60, 
+  refresh_interval_ms: 1000*60,
   backup_interval_ms: 1000*60*10,
   alive_age_ms: 1000*60*60*24,
   state_backup_file: './monitor.backup',
@@ -42,6 +42,21 @@ var comment_params = {
   filter: 'stream' // Get comment replies too
 };
 
+// Read nested value (i.e. obj.k1.k2.k3.k4) from object, returning undefined
+// rather than an error if any key in the sequence does not exist.
+function safe_get(obj, key_arr) {
+  if(_.isUndefined(obj)) {
+    return obj;
+  }
+
+  if(key_arr.length === 0) {
+    return obj;
+  }
+
+  var next_key = key_arr.pop();
+  return safe_get(obj[next_key], key_arr);
+}
+
 function format_post(source_id) {
   return function(post) {
     return {
@@ -49,8 +64,8 @@ function format_post(source_id) {
       id: post.id,
       created_time: post.created_time,
       updated_time: post.updated_time,
-      likes: post.likes.summary.total_count,
-      comments: post.comments.summary.total_count,
+      likes: safe_get(post, ['likes', 'summary', 'total_count']),
+      comments: safe_get(post, ['comments', 'summary', 'total_count']),
       shares: post.shares ? post.shares.count
                           : 0,
       message: post.message
@@ -64,8 +79,8 @@ function format_comment(post_id) {
       post_id: post_id,
       id: comment.id,
       created_time: comment.created_time,
-      from_id: comment.from.id,
-      likes: comment.likes.summary.total_count,
+      from_id: safe_get(comment, ['from', 'id']),
+      likes: safe_get(comment, ['likes', 'summary', 'total_count']),
       message: comment.message
     };
   };
@@ -115,7 +130,7 @@ function get(path, params, after, callback) {
     if(err && err.is_transient) {
       console.log('Got a transient error; retrying ' + path);
       return get(path, params, after, callback);
-    } 
+    }
 
     if(err) {
       console.error('Got an error while processing ' + path);
@@ -185,7 +200,7 @@ function get_posts(source_id) {
 function get_all_comments(post, callback) {
   // By passing null here, the first request gets the oldest comments, and 
   // recursive requests get all of them.
-  get_comments(post.id, null, callback); 
+  get_comments(post.id, null, callback);
 }
 
 function prune_posts() {
