@@ -279,16 +279,16 @@ function export_all() {
   });
 }
 
-function initialize() {
+function initialize(new_config) {
+  if(new_config) {
+    config = _.extend(config, new_config);
+  }
   graph.setVersion(config.version);
   graph.setAccessToken(config.access_token);
 }
 
 function start(new_config) {
-  if(new_config) {
-    config = _.extend(config, new_config);
-  }
-  initialize();
+  initialize(new_config);
   setInterval(check_all_sources, config.refresh_interval_ms);
   setInterval(prune_posts, config.refresh_interval_ms);
   setInterval(log_requests, config.refresh_interval_ms);
@@ -323,7 +323,7 @@ function test_sources() {
 // For testing rate limits
 function getlots(n) {
   _.each(_.range(n), function() {
-    get('/nytimes/feed', post_params, null, function() {});
+    get('/nytimes/feed', post_params, null, log_requests); 
   });
 }
 
@@ -338,6 +338,7 @@ module.exports = {
   debug: {
     initialize: initialize,
     getlots: getlots,
+    log_requests: log_requests,
     test_sources: test_sources,
     save_live_post_comments: save_live_post_comments,
     export_state: export_state,
