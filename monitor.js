@@ -91,15 +91,19 @@ function handle_error(err) {
     return;
   }
 
+  function log_with_timestamp(o) {
+    console.error('[' + (new Date()).toString() + '] ', o);
+  }
+
   if(typeof err === 'object') {
-    console.error(err);
+    log_with_timestamp(err);
     err = err.message;
   } else {
     err = err.toString();
-    console.error(err);
+    log_with_timestamp(err);
   }
 
-  if(!config.debug) {
+  if(config.debug) {
     throw new Error(err);
   }
 }
