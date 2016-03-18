@@ -1,3 +1,6 @@
+/* eslint camelcase: "off", no-console: "off" */
+'use strict';
+
 var graph = require('fbgraph');
 var _ = require('underscore');
 var json2csv = require('json2csv');
@@ -7,10 +10,12 @@ var fs = require('fs');
 var config = {
   version: '2.5',
   post_limit: 25,
-  comment_limit: 500, // If this is too big, you may get errors stating "Please reduce the amount of data you're asking for, then retry your request"
-  refresh_interval_ms: 1000*60,
-  backup_interval_ms: 1000*60*10,
-  alive_age_ms: 1000*60*60*24,
+  // If comment_limit is too big, you may get errors stating "Please reduce the
+  // amount of data you're asking for, then retry your request"
+  comment_limit: 500,
+  refresh_interval_ms: 1000 * 60,
+  backup_interval_ms: 1000 * 60 * 10,
+  alive_age_ms: 1000 * 60 * 60 * 24,
   state_backup_file: './monitor.backup',
   post_export_file: './monitor_posts.csv',
   comment_export_file: './monitor_comments.csv',
@@ -22,7 +27,7 @@ var config = {
     'nytimes'
   ],
   debug: false
-}
+};
 
 var state = {
   requests: [],
@@ -32,6 +37,7 @@ var state = {
 };
 
 var post_params = {
+  // eslint-disable-next-line max-len
   fields: 'id,created_time,updated_time,message,comments.summary(true).filter(stream),likes.summary(true),shares',
   limit: config.post_limit
 };
@@ -45,11 +51,11 @@ var comment_params = {
 // Read nested value (i.e. obj.k1.k2.k3.k4) from object, returning undefined
 // rather than an error if any key in the sequence does not exist.
 function safe_get(obj, key_arr) {
-  if(_.isUndefined(obj)) {
+  if (_.isUndefined(obj)) {
     return obj;
   }
 
-  if(key_arr.length === 0) {
+  if (key_arr.length === 0) {
     return obj;
   }
 
@@ -87,7 +93,7 @@ function format_comment(post_id) {
 }
 
 function handle_error(err) {
-  if(!err) {
+  if (!err) {
     return;
   }
 
@@ -95,7 +101,7 @@ function handle_error(err) {
     console.error('[' + (new Date()).toString() + '] ', o);
   }
 
-  if(typeof err === 'object') {
+  if (typeof err === 'object') {
     log_with_timestamp(err);
     err = err.message;
   } else {
@@ -103,7 +109,7 @@ function handle_error(err) {
     log_with_timestamp(err);
   }
 
-  if(config.debug) {
+  if (config.debug) {
     throw new Error(err);
   }
 }
@@ -114,34 +120,34 @@ function record_request() {
 
 function log_requests() {
   state.requests = state.requests.filter(function(when) {
-    var ms_per_hour = 1000*60*60;
-    return (new Date() - when) < ms_per_hour;
+    var ms_per_hour = 1000 * 60 * 60;
+    return new Date() - when < ms_per_hour;
   });
   console.log(state.requests.length + ' requests in the last hour.');
 }
 
 function updated_recently(post) {
-  return (new Date() - new Date(post.updated_time)) < config.alive_age_ms;
+  return new Date() - new Date(post.updated_time) < config.alive_age_ms;
 }
 
 function get(path, params, after, callback) {
-  if(after) {
+  if (after) {
     params = _.clone(params);
     params.after = after;
   }
 
   graph.get(path, params, function(err, res) {
-    if(err && err.is_transient) {
+    if (err && err.is_transient) {
       console.log('Got a transient error; retrying ' + path);
       return get(path, params, after, callback);
     }
 
-    if(err) {
+    if (err) {
       console.error('Got an error while processing ' + path);
       return handle_error(err);
     }
 
-    if(!res) {
+    if (!res) {
       return handle_error('No response object!');
     }
 
@@ -167,12 +173,12 @@ function get_comments(post_id, after, callback) {
   get('/' + post_id + '/comments', comment_params, after, function(res) {
     console.log('Got ' + res.data.length + ' comments');
     var new_comments_arr = _.map(res.data, format_comment(post_id));
-    state.comments = _.extend(state.comments, 
+    state.comments = _.extend(state.comments,
                               use_ids_as_keys(new_comments_arr));
 
-    if(res && res.paging && res.paging.cursors && res.paging.cursors.after) {
+    if (res && res.paging && res.paging.cursors && res.paging.cursors.after) {
       var new_after = res.paging.cursors.after;
-      if(after !== new_after) {
+      if (after !== new_after) {
         get_comments(post_id, new_after, callback);
       }
     } else {
@@ -190,10 +196,10 @@ function get_posts(source_id) {
     var post_records = _.map(res.data, format_post(source_id));
 
     _.each(post_records, function(post) {
-      var maybe_new_comments = !state.posts[post.id] || 
-                               (state.posts[post.id].updated_time !== 
-                                post.updated_time)
-      if(maybe_new_comments) {
+      var maybe_new_comments = !state.posts[post.id] ||
+                               state.posts[post.id].updated_time !==
+                               post.updated_time;
+      if (maybe_new_comments) {
         state.live_posts[post.id] = post;
       }
       state.posts[post.id] = post;
@@ -202,17 +208,17 @@ function get_posts(source_id) {
 }
 
 function get_all_comments(post, callback) {
-  // By passing null here, the first request gets the oldest comments, and 
+  // By passing null here, the first request gets the oldest comments, and
   // recursive requests get all of them.
   get_comments(post.id, null, callback);
 }
 
 function prune_posts() {
-  var alive_and_dying = _.partition(_.values(state.live_posts), 
+  var alive_and_dying = _.partition(_.values(state.live_posts),
                                     updated_recently);
   state.live_posts = use_ids_as_keys(alive_and_dying[0]);
   async.each(alive_and_dying[1], get_all_comments);
-  console.log('Pruned ' + alive_and_dying[1].length + ' posts. ' + 
+  console.log('Pruned ' + alive_and_dying[1].length + ' posts. ' +
               alive_and_dying[0].length + ' posts remain alive.');
 }
 
@@ -224,34 +230,34 @@ var save = fs.writeFile;
 
 // Save the state of this tool so it can be restarted easily.
 function export_state(filename) {
-  if(!filename) {
+  if (!filename) {
     filename = config.state_backup_file;
   }
   save(filename, JSON.stringify(state), handle_error);
 }
 
 function load_state(filename, callback) {
-  if(typeof filename === 'function') {
+  if (typeof filename === 'function') {
     callback = filename;
     filename = null;
   }
 
-  if(!filename) {
+  if (!filename) {
     filename = config.state_backup_file;
   }
 
   fs.readFile(filename, function(err, data) {
-    if(err && callback) {
+    if (err && callback) {
       return callback(err);
     }
 
-    if(err) {
+    if (err) {
       return handle_error(err);
     }
 
-    state = JSON.parse(data)
+    state = JSON.parse(data);
 
-    if(callback) {
+    if (callback) {
       callback();
     }
   });
@@ -263,8 +269,8 @@ function save_live_post_comments(callback) {
 
 function save_csv(filename, obj) {
   var arr = _.values(obj);
-  json2csv({ data: arr, fields: _.keys(arr[0]) }, function(err, csv) {
-    if(err) {
+  json2csv({data: arr, fields: _.keys(arr[0])}, function(err, csv) {
+    if (err) {
       return handle_error(err);
     }
     save(filename, csv, handle_error);
@@ -274,7 +280,7 @@ function save_csv(filename, obj) {
 // Export all data as two csv files, including comments from live posts
 function export_all() {
   save_live_post_comments(function(err) {
-    if(err) {
+    if (err) {
       return handle_error(err);
     }
     save_csv(config.post_export_file, state.posts);
@@ -284,7 +290,7 @@ function export_all() {
 }
 
 function initialize(new_config) {
-  if(new_config) {
+  if (new_config) {
     config = _.extend(config, new_config);
   }
   graph.setVersion(config.version);
@@ -305,7 +311,7 @@ function test_sources() {
   var posts = 0;
   async.each(config.sources, function(source_id, callback) {
     get('/' + source_id + '/feed', post_params, null, function(res) {
-      if(res.data.length === 0) {
+      if (res.data.length === 0) {
         callback(new Error('Source ' + source_id + ' returned 0 posts'));
       } else {
         posts += res.data.length;
@@ -313,13 +319,15 @@ function test_sources() {
       }
     });
   }, function(err) {
-    if(err) {
-      handle_error(err);
-    } else {
-      console.log('Successfully got posts (' + posts + ') from all sources (' + config.sources.length + ').');
-      if(config.sources.length * config.post_limit !== posts) {
-        console.log('Warning: hoped to get ' + (config.sources.length * config.post_limit) + ' posts, but only got ' + posts + '.');
-      }
+    if (err) {
+      return handle_error(err);
+    }
+    console.log('Successfully got posts (' + posts + ') from all sources (' +
+                config.sources.length + ').');
+    if (config.sources.length * config.post_limit !== posts) {
+      console.log('Warning: hoped to get ' +
+                  config.sources.length * config.post_limit +
+                  ' posts, but only got ' + posts + '.');
     }
   });
 }
@@ -327,7 +335,7 @@ function test_sources() {
 // For testing rate limits
 function getlots(n) {
   _.each(_.range(n), function() {
-    get('/nytimes/feed', post_params, null, log_requests); 
+    get('/nytimes/feed', post_params, null, log_requests);
   });
 }
 
