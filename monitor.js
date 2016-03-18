@@ -92,7 +92,7 @@ function format_comment(post_id) {
   };
 }
 
-function handle_error(err) {
+function handle_error(err, obj) {
   if (!err) {
     return;
   }
@@ -107,6 +107,10 @@ function handle_error(err) {
   } else {
     err = err.toString();
     log_with_timestamp(err);
+  }
+
+  if (obj) {
+    console.dir(obj);
   }
 
   if (config.debug) {
@@ -144,7 +148,7 @@ function get(path, params, after, callback) {
 
     if (err) {
       console.error('Got an error while processing ' + path);
-      return handle_error(err);
+      return handle_error(err, {params: params, res: res});
     }
 
     if (!res) {
