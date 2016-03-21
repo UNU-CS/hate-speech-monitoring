@@ -148,7 +148,7 @@ function get(path, params, after, callback) {
 
     if (err) {
       console.error('Got an error while processing ' + path);
-      return handle_error(err, {params: params, res: res});
+      return handle_error(err, { params: params, res: res });
     }
 
     if (!res) {
@@ -273,7 +273,7 @@ function save_live_post_comments(callback) {
 
 function save_csv(filename, obj) {
   var arr = _.values(obj);
-  json2csv({data: arr, fields: _.keys(arr[0])}, function(err, csv) {
+  json2csv({ data: arr, fields: _.keys(arr[0]) }, function(err, csv) {
     if (err) {
       return handle_error(err);
     }
