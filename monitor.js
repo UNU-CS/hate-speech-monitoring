@@ -92,13 +92,13 @@ function format_comment(post_id) {
   };
 }
 
+function log_with_timestamp(o) {
+  console.error('[' + (new Date()).toString() + '] ', o);
+}
+
 function handle_error(err, obj) {
   if (!err) {
     return;
-  }
-
-  function log_with_timestamp(o) {
-    console.error('[' + (new Date()).toString() + '] ', o);
   }
 
   if (typeof err === 'object') {
@@ -110,7 +110,7 @@ function handle_error(err, obj) {
   }
 
   if (obj) {
-    console.dir(obj);
+    console.error(obj);
   }
 
   if (config.debug) {
@@ -144,6 +144,16 @@ function get(path, params, after, callback) {
     if (err && err.is_transient) {
       console.log('Got a transient error; retrying ' + path);
       return get(path, params, after, callback);
+    }
+
+    // eslint-disable-next-line max-len
+    var missing_object_regex = /Object with ID .+ does not exist, cannot be loaded due to missing permissions, or does not support this operation/;
+    if (err && missing_object_regex.test(err.message)) {
+      return console.log(
+        'Warning: Object at ' + path + ' has likely been removed from ' +
+        'Facebook. Further updates will not be collected. It is possible, ' +
+        'however, that the object is still there, and this is caused by an ' +
+        'incorrect request made by this tool');
     }
 
     if (err) {
@@ -260,6 +270,7 @@ function load_state(filename, callback) {
     }
 
     state = JSON.parse(data);
+    console.log('Loaded state from ' + filename + ' successfully');
 
     if (callback) {
       callback();
